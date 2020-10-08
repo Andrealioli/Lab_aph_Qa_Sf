@@ -1,0 +1,95 @@
+---
+title: "Índice do Efeito de Empacotamento"
+runtime: shiny_prerendered
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+library(learnr)
+pack <- c("xlsx", "lubridate", "zoo", "openxlsx", "dplyr", "signal","MASS", "scales", "ggplot2", "readxl")
+lapply(pack, require, character.only=T)
+
+```
+
+```{r, include=FALSE}
+setwd("C:/Users/andre/Google Drive/INPE_DISCIPLINAS/Aula_disciplina_claudio_2020_aoh_HPLC")
+```
+
+Para estimar o índice do efeito de empacotamento da Bricaud et al. (2004):
+$${Q_{a}^*} = a_{ph} (\lambda) + a_{sol} (\lambda) $$
+Mas antes é necessário estimar o :
+$$ a_{sol} (\lambda) = \sum C_{i}.a_{sol, i}^*(\lambda) $$
+Gráfico dos $a_{sol, i}^*(\lambda)$ de cada pigmento dado pelo HPLC:
+
+
+```{r, include=F}
+bricaud_asol = read_excel("./tutorial_Qa/Bricaud_et_al_2004.xls",  skip=4, na="999")
+names(bricaud_asol)=c("lambda", "Chla", "DVChla", "Chlb", "DVChlb", "Chlc12", "Fuco", "ButFuco", "HexFuco", "Perid", "Diad", "Zea", "Allox", "betacar", "acar")
+```
+```{r plot1, exercise=TRUE}
+
+matplot(bricaud_asol$lambda, bricaud_asol[,2:15], type="l",ylab="" ,
+        xlab="Wavelength (nm)", ylim=c(0,0.08))
+
+mtext(side=2, line=2.5, expression(a[sol]^{'*'}~('m'^{2}~"mg"^{-1})))
+
+```
+Agora vamos pegar um resultado de HPLC hipotético e estimar o $a_{sol}(\lambda)$:
+
+```{r plot2, exercise=TRUE}
+HPLC = data.frame("Chla"=3, "DVChla"=0.001, 
+                  "Chlb"=0.03, "DVChlb"=0.01, "Chlc12"=0.3, "Fuco"=1.1, 
+                  "ButFuco"=0.001, "HexFuco"=0.005, "Perid"=0.5, "Diad"=0.01,
+                  "Zea"=1.5, "Allox"=0.05, "betacar"=1, "acar"=0.3)
+asol=data.frame(wv=bricaud_asol$lambda)
+for (i in names(HPLC)){
+  asol=cbind(asol, HPLC[,i]*bricaud_asol[,i])
+}
+asol_t = rowSums(asol[,-1], na.rm = T)
+plot(asol$wv, asol_t, type="l",  xlab="Wavelength (nm)", ylab="")
+mtext(side=2, line=2.5, expression(a[sol]~('m'^{-1})))
+```
+
+A partir desse $a_{sol}(\lambda)$ hipotético vamos estimar um $a_{ph}(\lambda)$ hipotético para depois estimar o $Q_{a}^*$:
+
+```{r plot3, exercise=T}
+HPLC = data.frame("Chla"=3, "DVChla"=0.001, 
+                  "Chlb"=0.03, "DVChlb"=0.01, "Chlc12"=0.3, "Fuco"=1.1, 
+                  "ButFuco"=0.001, "HexFuco"=0.005, "Perid"=0.5, "Diad"=0.01,
+                  "Zea"=1.5, "Allox"=0.05, "betacar"=1, "acar"=0.3)
+asol=data.frame(wv=bricaud_asol$lambda)
+for (i in names(HPLC)){
+  asol=cbind(asol, HPLC[,i]*bricaud_asol[,i])
+}
+asol_t = rowSums(asol[,-1], na.rm = T)
+aph=asol_t*0.8
+matplot(asol$wv, cbind(asol_t, aph), type="l", lw=c(2,2), 
+        col=c("black", "green"), lt=c(1,2), xlab="Wavelength (nm)", ylab="")
+mtext(side=2, line=2.5, expression(a~('m'^{-1})))
+legend("topright", legend=c(expression(a[sol]), 
+                            expression(a[ph])),lt=c(1,2), 
+       lw=c(2,2), col=c("black", "green"))
+
+```
+Estimando o $Q_{a}^*(440)$ e o $Q_{a}^*(676)$
+
+```{r Qa, exercise=TRUE}
+HPLC = data.frame("Chla"=3, "DVChla"=0.001, 
+                  "Chlb"=0.03, "DVChlb"=0.01, "Chlc12"=0.3, "Fuco"=1.1, 
+                  "ButFuco"=0.001, "HexFuco"=0.005, "Perid"=0.5, "Diad"=0.01,
+                  "Zea"=1.5, "Allox"=0.05, "betacar"=1, "acar"=0.3)
+asol=data.frame(wv=bricaud_asol$lambda)
+for (i in names(HPLC)){
+  asol=cbind(asol, HPLC[,i]*bricaud_asol[,i])
+}
+asol_t = rowSums(asol[,-1], na.rm = T)
+aph=asol_t*0.8
+
+a_todos = data.frame(wv=seq(400,700,2), "aph"=aph, "asol_t"=asol_t)
+Qa_440 = a_todos[which(a_todos$wv==440), "aph"]/a_todos[which(a_todos$wv==440), "asol_t"]
+Qa_676 = a_todos[which(a_todos$wv==676), "aph"]/a_todos[which(a_todos$wv==676), "asol_t"]
+Qa_440
+Qa_676
+```
